@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#08222e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<!--PWA-->
+<title>Kiwi Rush 3D</title>
+<style>
+  :root { --font: "Trebuchet MS", "Segoe UI", Verdana, sans-serif; }
+  html, body { margin: 0; height: 100%; background: #08222e; overflow: hidden; font-family: var(--font); overscroll-behavior: none; touch-action: none; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; user-select: none; -webkit-user-select: none; }
+  .touch-only { display: none !important; }
+  @media (pointer: coarse) { .touch-only { display: grid !important; } .kbd-only { display: none !important; } }
+  [hidden] { display: none !important; }
+  canvas { position: fixed; inset: 0; width: 100vw; height: 100vh; height: 100dvh; display: block; touch-action: none; user-select: none; -webkit-user-select: none; outline: none; }
+  .layer { position: fixed; inset: 0; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); box-sizing: border-box; pointer-events: none; color: #fff; font-weight: 800; }
+  .outline { text-shadow: -2px -2px 0 rgba(8,50,62,.85), 2px -2px 0 rgba(8,50,62,.85), -2px 2px 0 rgba(8,50,62,.85), 2px 2px 0 rgba(8,50,62,.85), 0 4px 10px rgba(0,0,0,.25); }
+
+  /* in-game HUD */
+  #hud > div { position: absolute; }
+  .tl { top: 18px; left: 22px; }
+  #score { font-size: clamp(28px, 5vw, 44px); line-height: 1; }
+  #best { font-size: clamp(12px, 1.8vw, 16px); color: #ffe9a8; margin-top: 4px; }
+  #hearts { margin-top: 8px; font-size: clamp(22px, 3.4vw, 30px); letter-spacing: 4px; }
+  #hearts i { font-style: normal; color: rgba(0,0,0,.35); text-shadow: 0 0 0 #fff; -webkit-text-stroke: 1.5px rgba(255,255,255,.35); }
+  #hearts i.full { color: #ff4d6d; -webkit-text-stroke: 1.5px #8e1030; }
+  .tr { top: 18px; right: 22px; display: flex; align-items: center; gap: 8px; font-size: clamp(22px, 3.4vw, 30px); }
+  .coin { width: 1em; height: 1em; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff6a8, #ffd23c 45%, #c98a10); border: 3px solid #c98a10; box-sizing: border-box; display: inline-block; }
+  .bl { left: 22px; bottom: 22px; width: min(220px, 40vw); }
+  #dashlabel { font-size: 15px; margin-bottom: 6px; }
+  #dashlabel.ready { color: #7dffd2; }
+  .bar { height: 14px; border: 2px solid rgba(255,255,255,.85); background: rgba(0,0,0,.35); border-radius: 8px; overflow: hidden; }
+  #dashfill { height: 100%; width: 0; background: #3fb6e8; }
+  #dashfill.ready { background: #7dffd2; }
+  #mute { right: 22px; bottom: 18px; font-size: 14px; }
+  .tb { position: absolute; top: calc(env(safe-area-inset-top) + 64px); right: calc(env(safe-area-inset-right) + 22px); display: none; gap: 10px; }
+  @media (pointer: coarse) { .tb { display: flex; } #mute { display: none; } }
+  .round { pointer-events: auto; width: 46px; height: 46px; border-radius: 50%; border: 3px solid rgba(255,255,255,.85); background: rgba(8,50,64,.55); color: #fff; font-size: 20px; line-height: 1; display: grid; place-items: center; padding: 0; cursor: pointer; }
+  .round:active { background: rgba(8,50,64,.85); }
+  .round.off { opacity: .55; }
+
+  #flash { background: radial-gradient(ellipse at center, rgba(255,60,60,0) 40%, rgba(255,40,40,.55)); opacity: 0; }
+
+  /* full-screen panels */
+  .screen { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 16px; box-sizing: border-box; }
+  #title { background: radial-gradient(ellipse at center, rgba(4,40,52,.38), rgba(4,40,52,.12)); }
+  #over, #paused { background: rgba(4,40,52,.5); }
+  h1 { margin: 0; font-size: clamp(48px, 11vw, 110px); line-height: 1; color: #ffe066; -webkit-text-stroke: 0; text-shadow: -4px -4px 0 #6b3a10, 4px -4px 0 #6b3a10, -4px 4px 0 #6b3a10, 4px 4px 0 #6b3a10, 0 8px 18px rgba(0,0,0,.3); }
+  h2 { margin: 0; font-size: clamp(36px, 8vw, 78px); }
+  .sub { font-size: clamp(16px, 2.6vw, 26px); margin-top: 8px; }
+  .cta { font-size: clamp(18px, 3.4vw, 32px); margin-top: 28px; animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  .keys { margin-top: 26px; display: grid; grid-template-columns: auto auto; gap: 8px 16px; text-align: left; font-size: clamp(13px, 2vw, 18px); font-weight: 700; }
+  .keys b { color: #ffe9a8; text-align: right; }
+  #overscore { font-size: clamp(34px, 7vw, 60px); margin-top: 14px; }
+  #overbest { font-size: clamp(18px, 3.4vw, 28px); margin-top: 8px; color: #ffe9a8; }
+  #overbest.new { color: #ffe066; }
+  #overgain { font-size: clamp(16px, 3vw, 24px); margin-top: 8px; color: #7dffd2; }
+  .bank { display: inline-flex; align-items: center; gap: 8px; }
+  .btn { pointer-events: auto; cursor: pointer; font: inherit; font-weight: 800; color: #fff; background: #ff9f1c; border: 3px solid #b86a00; border-radius: 14px; padding: 8px 20px; font-size: clamp(15px, 2.4vw, 20px); margin: 6px; text-shadow: 0 2px 0 rgba(0,0,0,.25); box-shadow: 0 4px 0 #b86a00; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #b86a00; }
+
+  /* shop */
+  #shop { pointer-events: auto; background: rgba(4,40,52,.55); }
+  .panel { width: min(680px, 94vw); max-height: 92vh; display: flex; flex-direction: column; background: rgba(8,50,64,.92); border: 3px solid #ffe066; border-radius: 22px; padding: 18px 20px; box-sizing: border-box; text-shadow: none; }
+  .shophead { display: flex; justify-content: space-between; align-items: center; }
+  .shophead h2 { font-size: clamp(28px, 5vw, 44px); color: #ffe066; }
+  .shophead .bank { font-size: clamp(20px, 3.6vw, 30px); }
+  .tabs { display: flex; gap: 8px; margin: 12px 0; }
+  .tabs button { flex: 1; font: inherit; font-weight: 800; font-size: clamp(14px, 2.4vw, 18px); color: #fff; background: rgba(255,255,255,.12); border: 2px solid rgba(255,255,255,.3); border-radius: 12px; padding: 8px; cursor: pointer; }
+  .tabs button.active { background: #ffe066; color: #5a3a08; border-color: #ffe066; }
+  #shoplist { overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; text-align: left; }
+  .card { display: flex; align-items: center; gap: 14px; background: rgba(255,255,255,.1); border: 2px solid transparent; border-radius: 14px; padding: 10px 12px; }
+  .card.sel { border-color: #7dffd2; }
+  .card .info { flex: 1; min-width: 0; }
+  .card .name { font-size: clamp(15px, 2.6vw, 20px); display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .card .desc { font-size: clamp(12px, 2vw, 14px); font-weight: 600; opacity: .85; margin-top: 2px; }
+  .card .eff { font-size: clamp(12px, 2vw, 14px); font-weight: 700; color: #ffe9a8; margin-top: 4px; }
+  .card .eff b { color: #7dffd2; }
+  .perks { margin: 4px 0 0; padding-left: 18px; font-size: clamp(12px, 2vw, 14px); font-weight: 700; color: #7dffd2; }
+  .pips { display: inline-flex; gap: 4px; }
+  .pips i { width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.25); }
+  .pips i.on { background: #ffe066; }
+  .thumb { width: 84px; height: 84px; flex: none; object-fit: cover; border-radius: 16px; border: 3px solid #fff; box-sizing: border-box; background: linear-gradient(#8fdcf2 0%, #d9f5f0 55%, #f4dc9c 56%, #e2bd77 100%); }
+  .swatch { width: 38px; height: 38px; border-radius: 50%; border: 3px solid #fff; flex: none; }
+  .card button { flex: none; min-width: 92px; font: inherit; font-weight: 800; font-size: 16px; color: #fff; background: #ff9f1c; border: 0; border-radius: 12px; padding: 9px 12px; cursor: pointer; display: inline-flex; gap: 6px; align-items: center; justify-content: center; }
+  .card button .coin { width: 16px; height: 16px; border-width: 2px; }
+  .card button:disabled { background: rgba(255,255,255,.18); color: rgba(255,255,255,.55); cursor: default; }
+  .card button.equipped { background: #2a9d8f; color: #fff; }
+  #shopclose { margin-top: 12px; align-self: center; }
+
+  #overcoins { display: flex; align-items: center; gap: 10px; font-size: clamp(22px, 4vw, 30px); margin-top: 14px; }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0"></canvas>
+
+<div id="flash" class="layer"></div>
+
+<div id="hud" class="layer outline" hidden>
+  <div class="tl"><div id="score">0</div><div id="best">BEST 0</div><div id="hearts"></div></div>
+  <div class="tr"><span class="coin"></span><span id="coins">× 0</span></div>
+  <div class="bl"><div id="dashlabel">DASH</div><div class="bar"><div id="dashfill"></div></div></div>
+  <div id="mute" hidden>MUTED</div>
+  <div class="tb"><button class="round" id="pausebtn" aria-label="Pause">❚❚</button><button class="round" id="mutebtn" aria-label="Sound">♪</button></div>
+</div>
+
+<div id="title" class="layer screen outline">
+  <h1>KIWI RUSH 3D</h1>
+  <div class="sub">three lanes · one very fast bird</div>
+  <div class="cta"><span class="kbd-only">PRESS SPACE OR </span>TAP TO START</div>
+  <div class="keys touch-only">
+    <b>Swipe ← →</b><span>Switch lane</span>
+    <b>Swipe ↑</b><span>Jump — again for a double jump</span>
+    <b>Swipe ↓</b><span>Slide under logs</span>
+    <b>Tap</b><span>Dash — smash obstacles</span>
+  </div>
+  <div class="keys kbd-only">
+    <b>← / → &nbsp;or&nbsp; A / D</b><span>Switch lane (swipe on touch)</span>
+    <b>↑ / W</b><span>Jump — press again to double jump</span>
+    <b>SPACE</b><span>Dash — smash obstacles, magnetise coins</span>
+    <b>↓ / S</b><span>Slide under logs — or slam down in the air</span>
+    <b>B · P · M</b><span>Shop · pause · mute</span>
+  </div>
+  <div class="sub" id="titlebest" style="margin-top:20px"></div>
+  <div class="sub" style="margin-top:10px"><span class="bank"><span class="coin"></span><b class="bankval">0</b></span> <button class="btn openshop">SHOP<span class="kbd-only"> [B]</span></button></div>
+</div>
+
+<div id="paused" class="layer screen outline" hidden>
+  <h2>PAUSED</h2>
+  <div class="sub kbd-only">press P to resume</div>
+  <button class="btn" id="resume">RESUME</button>
+</div>
+
+<div id="over" class="layer screen outline" hidden>
+  <h2 style="color:#ffb4a0">OH NO, KIWI!</h2>
+  <div id="overscore"></div>
+  <div id="overbest"></div>
+  <div id="overcoins"></div>
+  <div id="overgain"></div>
+  <div class="sub" style="margin-top:14px"><span class="bank"><span class="coin"></span><b class="bankval">0</b></span> <button class="btn openshop">SHOP<span class="kbd-only"> [B]</span></button></div>
+  <div class="cta" id="overhint" hidden><span class="kbd-only">PRESS SPACE OR </span>TAP TO RUN AGAIN</div>
+</div>
+
+<div id="shop" class="layer screen" hidden>
+  <div class="panel">
+    <div class="shophead"><h2>SHOP</h2><span class="bank"><span class="coin"></span><b id="shopbank" class="bankval">0</b></span></div>
+    <div class="tabs"><button data-tab="upgrades">Upgrades</button><button data-tab="kiwis">Kiwis</button></div>
+    <div id="shoplist"></div>
+    <button class="btn" id="shopclose">BACK<span class="kbd-only"> [B]</span></button>
+  </div>
+</div>
+
+<script>/*__BUNDLE__*/</script>
+</body>
+</html>

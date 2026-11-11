@@ -1,0 +1,22 @@
+{
+  "name": "kiwi-rush",
+  "version": "1.0.0",
+  "description": "Infinite runner starring a kiwi bird",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "npm run typecheck && node build.mjs",
+    "serve": "python3 -m http.server 8080 --directory docs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@types/three": "^0.187.0",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2"
+  },
+  "private": true,
+  "dependencies": {
+    "three": "^0.187.0"
+  }
+}
