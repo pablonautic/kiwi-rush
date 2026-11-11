@@ -35,6 +35,10 @@
   .bar { height: 14px; border: 2px solid rgba(255,255,255,.85); background: rgba(0,0,0,.35); border-radius: 8px; overflow: hidden; }
   #dashfill { height: 100%; width: 0; background: #3fb6e8; }
   #dashfill.ready { background: #7dffd2; }
+  #fuelwrap { margin-bottom: 10px; }
+  #fuellabel { font-size: 15px; margin-bottom: 6px; color: #ffb347; }
+  #fuelfill { height: 100%; width: 100%; background: #ff9f1c; }
+  #fuelfill.low { background: #ff4d4d; }
   #mute { right: 22px; bottom: 18px; font-size: 14px; }
   .tb { position: absolute; top: calc(env(safe-area-inset-top) + 64px); right: calc(env(safe-area-inset-right) + 22px); display: none; gap: 10px; }
   @media (pointer: coarse) { .tb { display: flex; } #mute { display: none; } }
@@ -104,7 +108,7 @@
 <div id="hud" class="layer outline" hidden>
   <div class="tl"><div id="score">0</div><div id="best">BEST 0</div><div id="hearts"></div></div>
   <div class="tr"><span class="coin"></span><span id="coins">× 0</span></div>
-  <div class="bl"><div id="dashlabel">DASH</div><div class="bar"><div id="dashfill"></div></div></div>
+  <div class="bl"><div id="fuelwrap" hidden><div id="fuellabel">JETPACK</div><div class="bar"><div id="fuelfill"></div></div></div><div id="dashlabel">DASH</div><div class="bar"><div id="dashfill"></div></div></div>
   <div id="mute" hidden>MUTED</div>
   <div class="tb"><button class="round" id="pausebtn" aria-label="Pause">❚❚</button><button class="round" id="mutebtn" aria-label="Sound">♪</button></div>
 </div>

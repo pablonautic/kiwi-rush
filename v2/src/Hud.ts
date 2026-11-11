@@ -6,6 +6,8 @@ export interface HudStats {
   dashCharge: number;
   best: number;
   muted: boolean;
+  /** Jetpack fuel 0..1, or null when the kiwi has no jetpack. */
+  fuel: number | null;
 }
 
 export type Screen = 'title' | 'playing' | 'paused' | 'over' | 'shop';
@@ -22,6 +24,8 @@ export class Hud {
   private dashLabel = el('dashlabel');
   private mute = el('mute');
   private muteBtn = el('mutebtn');
+  private fuelWrap = el('fuelwrap');
+  private fuelFill = el('fuelfill');
   private hud = el('hud');
   private flashEl = el('flash');
   private screens: Record<'title' | 'paused' | 'over' | 'shop', HTMLElement> = {
@@ -69,6 +73,11 @@ export class Hud {
     this.dashFill.classList.toggle('ready', ready);
     this.dashLabel.textContent = ready ? 'DASH READY' : 'DASH';
     this.dashLabel.classList.toggle('ready', ready);
+    this.fuelWrap.hidden = s.fuel === null;
+    if (s.fuel !== null) {
+      this.fuelFill.style.width = `${Math.round(s.fuel * 100)}%`;
+      this.fuelFill.classList.toggle('low', s.fuel < 0.25);
+    }
     this.mute.hidden = !s.muted;
     this.muteBtn.classList.toggle('off', s.muted);
   }

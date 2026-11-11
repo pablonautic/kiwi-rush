@@ -4,7 +4,7 @@ import { createShadow } from './Entity';
 import { KiwiModel } from './KiwiModel';
 import { computeStats } from './Progress';
 import type { PlayerStats } from './Progress';
-import { DASH, INVULN_TIME, PHYSICS, laneX } from './config';
+import { DASH, FLY, INVULN_TIME, JET, PHYSICS, laneX } from './config';
 import { clamp } from '../../src/math';
 
 export interface KiwiEvents {
@@ -13,9 +13,11 @@ export interface KiwiEvents {
   dash(): void;
   slide(): void;
   lane(): void;
+  /** The admin kiwi took off. */
+  fly(): void;
 }
 
-/** The player: a kiwi that switches between 3 lanes, jumps (twice), slides and dashes. */
+/** The player: a kiwi that switches between 3 lanes, jumps, slides, dashes and (some kiwis) flies. */
 export class Kiwi {
   readonly object = new THREE.Group();
 
@@ -26,12 +28,19 @@ export class Kiwi {
   hp = 3;
   invuln = 0;
   dead = false;
+  /** Admin kiwi in free flight. */
+  flying = false;
+  /** Jetpack currently firing. */
+  thrusting = false;
+  /** Jetpack fuel, 0..1. */
+  fuel = 1;
 
   private stats: PlayerStats = computeStats({ dashCooldown: 0, dashLength: 0, magnet: 0, heart: 0, coinValue: 0 }, 'classic');
   private model = new KiwiModel();
   private shadow = createShadow(0.9);
   private grounded = true;
   private jumpsLeft = 2;
+  private jumpHeld = false;
   private cutDone = false;
   private dashTimer = 0;
   private dashCd = 0;
@@ -64,8 +73,12 @@ export class Kiwi {
     this.hp = this.stats.maxHp;
     this.invuln = 0;
     this.dead = false;
+    this.flying = false;
+    this.thrusting = false;
+    this.fuel = 1;
     this.grounded = true;
     this.jumpsLeft = 2;
+    this.jumpHeld = false;
     this.dashTimer = 0;
     this.dashCd = 0;
     this.dashBlend = 0;
@@ -80,6 +93,13 @@ export class Kiwi {
   }
   get sliding(): boolean {
     return this.slideTimer > 0;
+  }
+  get invincible(): boolean {
+    return this.stats.invincible;
+  }
+  /** True for the kiwi that carries a jetpack (drives the fuel gauge). */
+  get hasJetpack(): boolean {
+    return this.stats.airMode === 'jetpack';
   }
   /** 0..1, smoothed: drives camera FOV and effects. */
   get dashAmount(): number {
@@ -104,6 +124,11 @@ export class Kiwi {
   get center(): THREE.Vector3 {
     return new THREE.Vector3(this.x, this.y + (this.sliding ? 0.3 : 0.7) * this.stats.scale, this.object.position.z);
   }
+  /** Where the jetpack nozzles are (for flame particles). */
+  get nozzle(): THREE.Vector3 {
+    const s = this.stats.scale;
+    return new THREE.Vector3(this.x, this.y + 0.45 * s, this.object.position.z + 0.62 * s);
+  }
 
   moveLane(dir: -1 | 1): void {
     if (this.dead) return;
@@ -113,9 +138,18 @@ export class Kiwi {
     this.events.lane();
   }
 
+  /** Jump key / swipe up. Holding it climbs (admin kiwi) or fires the jetpack. */
   jumpPress(): void {
-    if (this.dead || this.jumpsLeft <= 0) return;
+    if (this.dead) return;
+    this.jumpHeld = true;
+    if (this.flying || this.jumpsLeft <= 0) return;
+
     const first = this.jumpsLeft === 2;
+    if (!first && this.stats.airMode !== 'double') {
+      // second press in the air: take off (admin) or just keep thrusting (jetpack)
+      if (this.stats.airMode === 'fly') this.startFlight();
+      return;
+    }
     this.vy = (first ? PHYSICS.jumpVelocity : PHYSICS.doubleJumpVelocity) * this.stats.jumpMul;
     this.jumpsLeft--;
     this.grounded = false;
@@ -124,16 +158,28 @@ export class Kiwi {
     this.events.jump(!first);
   }
 
-  /** Releasing the key early gives a shorter hop. */
-  jumpRelease(): void {
-    if (!this.cutDone && this.vy > 4 && !this.dead) this.vy *= PHYSICS.jumpCut;
+  /** @param cut keyboard releases cut the jump short; touch releases don't (the finger has to lift). */
+  jumpRelease(cut = true): void {
+    this.jumpHeld = false;
+    if (cut && !this.cutDone && this.vy > 4 && !this.dead && !this.flying && !this.thrusting) this.vy *= PHYSICS.jumpCut;
     this.cutDone = true;
   }
 
-  /** Down: slide along the sand, or slam back down when airborne. */
+  private startFlight(): void {
+    this.flying = true;
+    this.vy = 0;
+    this.jumpsLeft = 0;
+    this.slideTimer = 0;
+    this.events.fly();
+  }
+
+  /** Down: slide along the sand, or dive back down when airborne. */
   down(): void {
     if (this.dead) return;
-    if (this.grounded) {
+    if (this.flying) {
+      this.flying = false;
+      this.vy = PHYSICS.fastFall;
+    } else if (this.grounded) {
       if (!this.sliding) this.events.slide();
       this.slideTimer = this.stats.slideDuration;
     } else {
@@ -163,6 +209,7 @@ export class Kiwi {
     this.jumpsLeft = 1;
     this.dashTimer = 0;
     this.slideTimer = 0;
+    this.flying = false;
   }
 
   kill(): void {
@@ -172,6 +219,7 @@ export class Kiwi {
     this.dashTimer = 0;
     this.slideTimer = 0;
     this.invuln = 0;
+    this.flying = false;
   }
 
   update(dt: number, speed: number): void {
@@ -184,12 +232,27 @@ export class Kiwi {
     this.dashBlend += ((this.dashing ? 1 : 0) - this.dashBlend) * Math.min(1, dt * (this.dashing ? 14 : 5));
     if (this.dead) this.deadTime += dt;
 
-    // smooth lane change
-    this.x += (laneX(this.lane) - this.x) * (1 - Math.exp(-16 * dt));
+    // smooth lane change (the sport kiwi's reflexes make it several times quicker)
+    this.x += (laneX(this.lane) - this.x) * (1 - Math.exp(-16 * this.stats.reflex * dt));
 
-    // dashing makes the kiwi glide almost horizontally
-    this.vy -= PHYSICS.gravity * (this.dashing ? 0.06 : 1) * dt;
-    if (this.dashing) this.vy *= Math.pow(0.9, dt * 90);
+    this.thrusting = false;
+    if (this.flying && !this.dead) {
+      // free flight: hold jump to climb, otherwise hover
+      const target = this.jumpHeld ? FLY.climb : 0;
+      this.vy += (target - this.vy) * Math.min(1, dt * FLY.smooth);
+      if (this.y >= FLY.maxY && this.vy > 0) this.vy = 0;
+    } else {
+      // dashing makes the kiwi glide almost horizontally
+      this.vy -= PHYSICS.gravity * (this.dashing ? 0.06 : 1) * dt;
+      if (this.dashing) this.vy *= Math.pow(0.9, dt * 90);
+
+      // jetpack: holding jump in the air burns fuel for lift
+      if (this.stats.airMode === 'jetpack' && this.jumpHeld && !this.grounded && this.fuel > 0 && !this.dead && this.y < JET.maxY) {
+        this.vy = Math.min(JET.maxClimb, this.vy + JET.thrust * dt);
+        this.fuel = Math.max(0, this.fuel - dt / JET.fuelSeconds);
+        this.thrusting = true;
+      }
+    }
     this.y += this.vy * dt;
 
     if (this.y <= 0) {
@@ -200,12 +263,14 @@ export class Kiwi {
       }
       this.vy = 0;
       this.grounded = true;
+      this.flying = false;
       this.jumpsLeft = 2;
     } else {
       this.grounded = false;
       this.slideTimer = 0;
     }
 
+    if (this.grounded) this.fuel = Math.min(1, this.fuel + dt / JET.refillSeconds);
     if (this.grounded && !this.dead) this.runPhase += dt * (6 + speed * 0.45);
     this.sync(dt);
   }
@@ -225,6 +290,8 @@ export class Kiwi {
       vy: this.vy,
       dashing: this.dashing,
       sliding: this.sliding,
+      flying: this.flying,
+      thrusting: this.thrusting,
       lateral: laneX(this.lane) - this.x,
       squash: this.squash,
       dead: this.dead,

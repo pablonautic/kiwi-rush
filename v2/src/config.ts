@@ -38,6 +38,27 @@ export const SLIDE = {
   duration: 0.7,
 };
 
+/** Admin kiwi: press jump twice to fly. */
+export const FLY = {
+  /** Climb speed while the jump key is held (units/s). */
+  climb: 7.5,
+  /** How quickly vertical speed follows the target (higher = snappier). */
+  smooth: 6,
+  maxY: 6.5,
+};
+
+/** Jetpack kiwi: hold jump in the air to thrust. */
+export const JET = {
+  /** Upward acceleration while thrusting (gravity is 44). */
+  thrust: 72,
+  maxClimb: 8,
+  maxY: 6.5,
+  /** Seconds of continuous thrust on a full tank. */
+  fuelSeconds: 1.8,
+  /** Seconds on the ground to refill an empty tank. */
+  refillSeconds: 1,
+};
+
 export const INVULN_TIME = 1.6;
 export const COIN_SCORE = 10;
 export const BEST_KEY = 'kiwi-rush-3d-best';

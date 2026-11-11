@@ -57,6 +57,8 @@ export class Game {
   private dustTimer = 0;
   private streakTimer = 0;
   private sprayTimer = 0;
+  private jetTimer = 0;
+  private jetSound = 0;
   private combo = 0;
   private comboTimer = 0;
   private scrollSpeed = 0;
@@ -77,6 +79,7 @@ export class Game {
       dash: () => this.sfx.dash(),
       slide: () => this.sfx.slide(),
       lane: () => this.sfx.lane(),
+      fly: () => this.sfx.jump(true),
     });
     this.kiwi.applyStats(this.stats);
 
@@ -103,7 +106,7 @@ export class Game {
       left: () => this.state === 'playing' && this.kiwi.moveLane(-1),
       right: () => this.state === 'playing' && this.kiwi.moveLane(1),
       jumpPress: () => this.onJump(),
-      jumpRelease: () => this.state === 'playing' && this.kiwi.jumpRelease(),
+      jumpRelease: (cut) => this.state === 'playing' && this.kiwi.jumpRelease(cut),
       down: () => this.state === 'playing' && this.kiwi.down(),
       dash: () => this.onDash(),
       pause: () => this.onPause(),
@@ -299,6 +302,7 @@ export class Game {
       this.emitDust(dt);
       this.emitDashTrail(dt);
       this.emitSpray(dt);
+      this.emitJet(dt);
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) this.combo = 0;
     }
@@ -372,6 +376,20 @@ export class Game {
     }
   }
 
+  private emitJet(dt: number): void {
+    if (!this.kiwi.thrusting) return;
+    this.jetTimer -= dt;
+    while (this.jetTimer <= 0) {
+      this.jetTimer += 0.02;
+      this.particles.flame(this.kiwi.nozzle);
+    }
+    this.jetSound -= dt;
+    if (this.jetSound <= 0) {
+      this.jetSound = 0.12;
+      this.sfx.jet();
+    }
+  }
+
   private emitDashTrail(dt: number): void {
     if (!this.kiwi.dashing) return;
     this.streakTimer -= dt;
@@ -392,6 +410,7 @@ export class Game {
       dashCharge: this.kiwi.dashCharge,
       best: this.best,
       muted: this.sfx.muted,
+      fuel: this.kiwi.hasJetpack ? this.kiwi.fuel : null,
     };
   }
 

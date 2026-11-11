@@ -69,6 +69,11 @@ export class Sfx {
     this.tone(300, 0.09, 'triangle', 0.05, 160);
   }
 
+  /** A short burst of jetpack roar. */
+  jet(): void {
+    this.noise(0.14, 0.05, 500);
+  }
+
   slide(): void {
     this.noise(0.3, 0.08, 900);
   }

@@ -2,7 +2,8 @@ export interface InputHandlers {
   left(): void;
   right(): void;
   jumpPress(): void;
-  jumpRelease(): void;
+  /** @param cut true for keyboard (releasing early shortens the jump); touch releases pass false */
+  jumpRelease(cut: boolean): void;
   down(): void;
   dash(): void;
   pause(): void;
@@ -23,7 +24,7 @@ const SWIPE_PX = 36;
 
 /** Keyboard: ←/→ lanes, ↑ jump, ↓ slide, Space dash, B shop. Touch: swipe left/right/up/down, tap to dash. */
 export class Input {
-  private touch: { id: number; x: number; y: number; used: boolean } | null = null;
+  private touch: { id: number; x: number; y: number; used: boolean; jumped: boolean } | null = null;
 
   constructor(target: HTMLElement, private h: InputHandlers) {
     window.addEventListener('keydown', this.onKeyDown);
@@ -31,7 +32,10 @@ export class Input {
     target.addEventListener('pointerdown', this.onPointerDown);
     window.addEventListener('pointermove', this.onPointerMove);
     window.addEventListener('pointerup', this.onPointerUp);
-    window.addEventListener('pointercancel', () => (this.touch = null));
+    window.addEventListener('pointercancel', () => {
+      if (this.touch?.jumped) this.h.jumpRelease(false);
+      this.touch = null;
+    });
     target.addEventListener('contextmenu', (e) => e.preventDefault());
   }
 
@@ -50,12 +54,12 @@ export class Input {
   };
 
   private onKeyUp = (e: KeyboardEvent): void => {
-    if (JUMP.has(e.key)) this.h.jumpRelease();
+    if (JUMP.has(e.key)) this.h.jumpRelease(true);
   };
 
   private onPointerDown = (e: PointerEvent): void => {
     e.preventDefault();
-    this.touch = { id: e.pointerId, x: e.clientX, y: e.clientY, used: false };
+    this.touch = { id: e.pointerId, x: e.clientX, y: e.clientY, used: false, jumped: false };
   };
 
   private onPointerMove = (e: PointerEvent): void => {
@@ -66,7 +70,10 @@ export class Input {
     if (Math.max(Math.abs(dx), Math.abs(dy)) < SWIPE_PX) return;
     t.used = true;
     if (Math.abs(dx) > Math.abs(dy)) (dx < 0 ? this.h.left : this.h.right)();
-    else if (dy < 0) this.h.jumpPress();
+    else if (dy < 0) {
+      t.jumped = true; // keep the finger down to keep flying / thrusting
+      this.h.jumpPress();
+    }
     else this.h.down();
   };
 
@@ -75,5 +82,6 @@ export class Input {
     if (!t || t.id !== e.pointerId) return;
     this.touch = null;
     if (!t.used) this.h.dash(); // a plain tap dashes
+    else if (t.jumped) this.h.jumpRelease(false);
   };
 }

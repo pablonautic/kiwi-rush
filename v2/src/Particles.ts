@@ -92,6 +92,19 @@ export class Particles {
     });
   }
 
+  /** Jetpack exhaust. */
+  flame(at: THREE.Vector3): void {
+    const colors = ['#ffe066', '#ffb300', '#ff5400'];
+    this.emit({
+      pos: at.clone().add(new THREE.Vector3(rand(-0.3, 0.3), 0, rand(-0.1, 0.1))),
+      vel: new THREE.Vector3(rand(-0.6, 0.6), rand(-7, -4), rand(1, 3)),
+      life: rand(0.2, 0.4),
+      size: rand(0.15, 0.32),
+      color: colors[Math.floor(Math.random() * colors.length)],
+      drag: 1,
+    });
+  }
+
   /** Sand thrown up by a sliding kiwi. */
   spray(at: THREE.Vector3): void {
     for (let i = 0; i < 2; i++) {

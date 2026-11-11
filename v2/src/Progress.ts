@@ -2,11 +2,13 @@ import { DASH, SLIDE } from './config';
 import { clamp } from '../../src/math';
 
 export type UpgradeId = 'dashCooldown' | 'dashLength' | 'magnet' | 'heart' | 'coinValue';
-export type KiwiId = 'classic' | 'parkour' | 'golden' | 'sumo';
+export type KiwiId = 'classic' | 'parkour' | 'sumo' | 'jetpack' | 'sport' | 'golden' | 'admin';
+/** What the second jump input does: a double jump, free flight, or jetpack thrust. */
+export type AirMode = 'double' | 'fly' | 'jetpack';
 
 export interface KiwiSkin {
-  texture: 'brown' | 'gold' | 'slate';
-  accessory: 'none' | 'headband' | 'crown' | 'belt';
+  texture: 'brown' | 'gold' | 'slate' | 'void';
+  accessory: 'none' | 'headband' | 'crown' | 'belt' | 'admin' | 'jetpack' | 'racer';
 }
 
 /** Everything the gameplay code needs to know about the current kiwi + upgrades. */
@@ -22,6 +24,11 @@ export interface PlayerStats {
   coinMult: number;
   jumpMul: number;
   slideDuration: number;
+  airMode: AirMode;
+  /** Obstacles never hurt (they get smashed instead). */
+  invincible: boolean;
+  /** Multiplier for how fast the kiwi changes lanes. */
+  reflex: number;
 }
 
 interface Mods {
@@ -33,6 +40,9 @@ interface Mods {
   jumpMul: number;
   slideMul: number;
   scale: number;
+  airMode: AirMode;
+  invincible: boolean;
+  reflex: number;
 }
 
 const NEUTRAL: Mods = {
@@ -44,6 +54,9 @@ const NEUTRAL: Mods = {
   jumpMul: 1,
   slideMul: 1,
   scale: 1,
+  airMode: 'double',
+  invincible: false,
+  reflex: 1,
 };
 
 export interface KiwiDef {
@@ -90,14 +103,44 @@ export const KIWIS: KiwiDef[] = [
     mods: { extraHp: 1, dashLengthMul: 1.3, dashCooldownMul: 1.1, scale: 1.15 },
   },
   {
+    id: 'jetpack',
+    name: 'Jetpack Kiwi',
+    blurb: 'Goggles on. Tanks full.',
+    perks: ['Hold jump in the air to fly on the jetpack', 'Limited fuel, refills on the ground', 'No double jump'],
+    price: 750,
+    skin: { texture: 'brown', accessory: 'jetpack' },
+    accent: '#ff7b00',
+    mods: { airMode: 'jetpack' },
+  },
+  {
+    id: 'sport',
+    name: 'Sport Kiwi',
+    blurb: 'F1 helmet, racing suit, fresh sneakers.',
+    perks: ['Reflexes ×3: switches lanes 3× faster', 'Dash cooldown −50%'],
+    price: 1000,
+    skin: { texture: 'brown', accessory: 'racer' },
+    accent: '#d62828',
+    mods: { reflex: 3, dashCooldownMul: 0.5 },
+  },
+  {
     id: 'golden',
     name: 'Golden Kiwi',
     blurb: 'Coins simply like this bird.',
     perks: ['Coin magnet +3', 'Coins are worth +25%'],
-    price: 900,
+    price: 1500,
     skin: { texture: 'gold', accessory: 'crown' },
     accent: '#ffd23c',
     mods: { magnet: 3, coinMul: 1.25 },
+  },
+  {
+    id: 'admin',
+    name: 'Admin Kiwi',
+    blurb: 'Has root access to the island.',
+    perks: ['Invincible — obstacles get smashed', 'Press jump twice to FLY', 'Hold ↑ to climb, ↓ to dive'],
+    price: 2000,
+    skin: { texture: 'void', accessory: 'admin' },
+    accent: '#9b5de5',
+    mods: { invincible: true, airMode: 'fly' },
   },
 ];
 
@@ -167,6 +210,9 @@ export function computeStats(levels: Levels, kiwiId: KiwiId): PlayerStats {
     coinMult: (1 + 0.2 * levels.coinValue) * m.coinMul,
     jumpMul: m.jumpMul,
     slideDuration: SLIDE.duration * m.slideMul,
+    airMode: m.airMode,
+    invincible: m.invincible,
+    reflex: m.reflex,
   };
 }
 

@@ -76,7 +76,7 @@ export class World {
 
     for (const o of this.obstacles) {
       if (o.dead || !boxesOverlap(kb, o.box)) continue;
-      if (kiwi.dashing) {
+      if (kiwi.dashing || kiwi.invincible) {
         o.dead = true;
         on.smash(o);
       } else if (kiwi.invuln <= 0 && !kiwi.dead) {
