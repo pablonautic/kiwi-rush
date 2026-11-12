@@ -61,6 +61,25 @@ export class World {
   }
 
   /** @param magnet radius within which coins are pulled towards the kiwi (0 = off) */
+  /** Webs crabs and gulls up to `range` units ahead and drags them to (x, y). */
+  webPull(z: number, range: number, x: number, y: number, dt: number): void {
+    for (const o of this.obstacles) {
+      const ahead = z - o.object.position.z;
+      if (!o.dead && ahead > 0 && ahead < range) o.pull(x, y, dt);
+    }
+  }
+
+  /** Destroys every obstacle between `z` and `range` units further ahead. */
+  shoot(z: number, range: number, on: (o: Obstacle) => void): void {
+    for (const o of this.obstacles) {
+      const ahead = z - o.object.position.z;
+      if (o.dead || ahead < -1 || ahead > range) continue;
+      o.dead = true;
+      on(o);
+    }
+    this.sweep();
+  }
+
   collide(kiwi: Kiwi, dt: number, magnet: number, on: CollisionHandlers): void {
     const kb = kiwi.box;
     const c = kiwi.center;

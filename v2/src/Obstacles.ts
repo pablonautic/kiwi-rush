@@ -14,6 +14,9 @@ export abstract class Obstacle extends Entity {
   /** Extra speed towards the camera on top of the world scroll. */
   protected extraSpeed = 0;
 
+  /** Webbed and dragged towards (x, y) — only crabs and gulls react. */
+  pull(_x: number, _y: number, _dt: number): void {}
+
   override update(dt: number, speed: number, time: number): void {
     super.update(dt, speed + this.extraSpeed, time);
   }
@@ -102,6 +105,10 @@ export class Crab extends Obstacle {
     this.object.position.set(x, 0, z);
   }
 
+  override pull(x: number, _y: number, dt: number): void {
+    this.baseX += (x - this.baseX) * Math.min(1, dt * 7);
+  }
+
   override update(dt: number, speed: number, time: number): void {
     super.update(dt, speed, time);
     this.phase += dt * 12;
@@ -165,6 +172,12 @@ export class Seagull extends Obstacle {
     this.shadow = createShadow(0.9);
     this.object.add(this.shadow);
     this.object.position.set(x, y, z);
+  }
+
+  override pull(x: number, y: number, dt: number): void {
+    const k = Math.min(1, dt * 7);
+    this.object.position.x += (x - this.object.position.x) * k;
+    this.baseY += (y - this.baseY) * k;
   }
 
   override update(dt: number, speed: number, time: number): void {

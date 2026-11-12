@@ -2,13 +2,13 @@ import { DASH, SLIDE } from './config';
 import { clamp } from '../../src/math';
 
 export type UpgradeId = 'dashCooldown' | 'dashLength' | 'magnet' | 'heart' | 'coinValue';
-export type KiwiId = 'classic' | 'parkour' | 'sumo' | 'jetpack' | 'sport' | 'golden' | 'admin';
+export type KiwiId = 'classic' | 'parkour' | 'sumo' | 'jetpack' | 'sport' | 'golden' | 'cowboy' | 'cat' | 'spidey' | 'admin';
 /** What the second jump input does: a double jump, free flight, or jetpack thrust. */
 export type AirMode = 'double' | 'fly' | 'jetpack';
 
 export interface KiwiSkin {
-  texture: 'brown' | 'gold' | 'slate' | 'void';
-  accessory: 'none' | 'headband' | 'crown' | 'belt' | 'admin' | 'jetpack' | 'racer';
+  texture: 'brown' | 'gold' | 'slate' | 'void' | 'ginger';
+  accessory: 'none' | 'headband' | 'crown' | 'belt' | 'admin' | 'jetpack' | 'racer' | 'cowboy' | 'cat' | 'spidey';
 }
 
 /** Everything the gameplay code needs to know about the current kiwi + upgrades. */
@@ -29,6 +29,12 @@ export interface PlayerStats {
   invincible: boolean;
   /** Multiplier for how fast the kiwi changes lanes. */
   reflex: number;
+  /** Rides a horse (taller, longer hitbox). */
+  mounted: boolean;
+  /** The dash fires pistols and destroys every obstacle ahead. */
+  shootout: boolean;
+  /** The dash webs crabs and gulls and pulls them in. */
+  web: boolean;
 }
 
 interface Mods {
@@ -43,6 +49,10 @@ interface Mods {
   airMode: AirMode;
   invincible: boolean;
   reflex: number;
+  mounted: boolean;
+  shootout: boolean;
+  /** The dash webs crabs and gulls and pulls them in. */
+  web: boolean;
 }
 
 const NEUTRAL: Mods = {
@@ -57,6 +67,9 @@ const NEUTRAL: Mods = {
   airMode: 'double',
   invincible: false,
   reflex: 1,
+  mounted: false,
+  shootout: false,
+  web: false,
 };
 
 export interface KiwiDef {
@@ -107,7 +120,7 @@ export const KIWIS: KiwiDef[] = [
     name: 'Jetpack Kiwi',
     blurb: 'Goggles on. Tanks full.',
     perks: ['Hold jump in the air to fly on the jetpack', 'Limited fuel, refills on the ground', 'No double jump'],
-    price: 750,
+    price: 1250,
     skin: { texture: 'brown', accessory: 'jetpack' },
     accent: '#ff7b00',
     mods: { airMode: 'jetpack' },
@@ -133,11 +146,41 @@ export const KIWIS: KiwiDef[] = [
     mods: { magnet: 3, coinMul: 1.25 },
   },
   {
+    id: 'cowboy',
+    name: 'Cowboy Kiwi',
+    blurb: 'Rides a horse. Shoots first.',
+    perks: ['Rides a horse (bigger hitbox)', 'Dash = shootout: pistols destroy every obstacle ahead', 'Smashed obstacles still score'],
+    price: 1500,
+    skin: { texture: 'brown', accessory: 'cowboy' },
+    accent: '#a0522d',
+    mods: { mounted: true, shootout: true },
+  },
+  {
+    id: 'cat',
+    name: 'Cat Kiwi',
+    blurb: 'A kiwi in a cat costume. Meow?',
+    perks: ['Dash lasts 1000% longer'],
+    price: 1410,
+    skin: { texture: 'ginger', accessory: 'cat' },
+    accent: '#f08a3c',
+    mods: { dashLengthMul: 11 },
+  },
+  {
+    id: 'spidey',
+    name: 'Spidey Kiwi',
+    blurb: 'Friendly neighbourhood kiwi.',
+    perks: ['Dash webs crabs and gulls and pulls them in'],
+    price: 1700,
+    skin: { texture: 'brown', accessory: 'spidey' },
+    accent: '#d62828',
+    mods: { web: true },
+  },
+  {
     id: 'admin',
     name: 'Admin Kiwi',
     blurb: 'Has root access to the island.',
     perks: ['Invincible — obstacles get smashed', 'Press jump twice to FLY', 'Hold ↑ to climb, ↓ to dive'],
-    price: 2000,
+    price: 9999,
     skin: { texture: 'void', accessory: 'admin' },
     accent: '#9b5de5',
     mods: { invincible: true, airMode: 'fly' },
@@ -213,6 +256,9 @@ export function computeStats(levels: Levels, kiwiId: KiwiId): PlayerStats {
     airMode: m.airMode,
     invincible: m.invincible,
     reflex: m.reflex,
+    mounted: m.mounted,
+    shootout: m.shootout,
+    web: m.web,
   };
 }
 

@@ -59,6 +59,12 @@ export const JET = {
   refillSeconds: 1,
 };
 
+/** Cowboy kiwi: the dash turns into a shootout. */
+export const SHOOT = {
+  /** How far ahead (units) the volley reaches. Covers everything visible. */
+  range: 100,
+};
+
 export const INVULN_TIME = 1.6;
 export const COIN_SCORE = 10;
 export const BEST_KEY = 'kiwi-rush-3d-best';

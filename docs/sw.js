@@ -1,6 +1,6 @@
 // Service worker: makes the game installable and playable offline.
 // Network-first (so updates arrive as soon as you're online), cache as the fallback.
-const CACHE = 'kiwi-rush-mwc348sj';
+const CACHE = 'kiwi-rush-mwdbty69';
 const ASSETS = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {

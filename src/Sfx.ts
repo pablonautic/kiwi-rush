@@ -69,6 +69,12 @@ export class Sfx {
     this.tone(300, 0.09, 'triangle', 0.05, 160);
   }
 
+  /** A revolver shot. */
+  shot(): void {
+    this.noise(0.09, 0.14, 1200);
+    this.tone(170, 0.1, 'square', 0.07, -110);
+  }
+
   /** A short burst of jetpack roar. */
   jet(): void {
     this.noise(0.14, 0.05, 500);

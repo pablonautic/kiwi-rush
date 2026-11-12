@@ -13,7 +13,7 @@ import type { PlayerStats } from './Progress';
 import { KiwiThumbs } from './KiwiThumbs';
 import { ShopUI } from './ShopUI';
 import { World } from './World';
-import { BEST_KEY, COIN_SCORE, DASH, SPEED } from './config';
+import { BEST_KEY, COIN_SCORE, DASH, SHOOT, SPEED } from './config';
 import { Sfx } from '../../src/Sfx';
 
 type State = 'title' | 'playing' | 'paused' | 'dying' | 'over' | 'shop';
@@ -58,6 +58,8 @@ export class Game {
   private streakTimer = 0;
   private sprayTimer = 0;
   private jetTimer = 0;
+  private muzzleTimer = 0;
+  private shotSound = 0;
   private jetSound = 0;
   private combo = 0;
   private comboTimer = 0;
@@ -295,6 +297,18 @@ export class Game {
       }
     }
 
+    // spidey: dashing webs crabs and gulls and drags them into the kiwi
+    if (this.state === 'playing' && this.kiwi.dashing && this.stats.web) {
+      const c = this.kiwi.center;
+      this.world.webPull(this.kiwi.position.z, 30, c.x, c.y, dt);
+    }
+
+    // cowboy shootout: the volley sweeps forward and takes out everything in range
+    if (this.state === 'playing' && this.kiwi.shootout) {
+      const reach = SHOOT.range * Math.min(1, this.kiwi.dashProgress * 2.5);
+      this.world.shoot(this.kiwi.position.z, reach, (o) => this.onShot(o));
+    }
+
     this.env.update(dt, speed, this.clock, this.rig.camera);
     this.rig.update(dt, this.kiwi, this.clock);
 
@@ -303,6 +317,7 @@ export class Game {
       this.emitDashTrail(dt);
       this.emitSpray(dt);
       this.emitJet(dt);
+      this.emitMuzzle(dt);
       this.comboTimer -= dt;
       if (this.comboTimer <= 0) this.combo = 0;
     }
@@ -373,6 +388,32 @@ export class Game {
     while (this.sprayTimer <= 0) {
       this.sprayTimer += 0.02;
       this.particles.spray(this.groundPoint());
+    }
+  }
+
+  /** An obstacle shot by the cowboy: it explodes, scores, and a tracer flies to its lane. */
+  private onShot(o: Obstacle): void {
+    this.bonus += o.score;
+    this.rig.addShake(0.15);
+    this.particles.smash(o.object.position.clone().add(new THREE.Vector3(0, 0.5, 0)), o.debris);
+    const muzzle = this.kiwi.muzzles[this.bonus % 2];
+    this.particles.bullet(muzzle, o.object.position.x);
+    this.shotSound -= 1;
+    if (this.shotSound <= 0) {
+      this.shotSound = 3;
+      this.sfx.shot();
+    }
+  }
+
+  private emitMuzzle(dt: number): void {
+    if (!this.kiwi.shootout) return;
+    this.muzzleTimer -= dt;
+    while (this.muzzleTimer <= 0) {
+      this.muzzleTimer += 0.045;
+      for (const m of this.kiwi.muzzles) {
+        this.particles.muzzle(m);
+        this.particles.bullet(m, m.x);
+      }
     }
   }
 

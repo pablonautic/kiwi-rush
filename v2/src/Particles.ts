@@ -92,6 +92,35 @@ export class Particles {
     });
   }
 
+  /** A bullet tracer flying down the track towards `targetX`. */
+  bullet(from: THREE.Vector3, targetX: number): void {
+    const speed = 170;
+    const dist = 60;
+    this.emit({
+      pos: from.clone(),
+      vel: new THREE.Vector3(((targetX - from.x) / dist) * speed, 0, -speed),
+      life: 0.3,
+      size: rand(3, 6),
+      color: '#fff3a0',
+      scroll: false,
+      streak: true,
+    });
+  }
+
+  /** Spark burst at a pistol muzzle. */
+  muzzle(at: THREE.Vector3): void {
+    for (let i = 0; i < 4; i++) {
+      this.emit({
+        pos: at.clone(),
+        vel: new THREE.Vector3(rand(-2, 2), rand(-1, 2), rand(-5, -1)),
+        life: rand(0.1, 0.2),
+        size: rand(0.1, 0.2),
+        color: i % 2 ? '#ffe066' : '#ff9f1c',
+        scroll: false,
+      });
+    }
+  }
+
   /** Jetpack exhaust. */
   flame(at: THREE.Vector3): void {
     const colors = ['#ffe066', '#ffb300', '#ff5400'];

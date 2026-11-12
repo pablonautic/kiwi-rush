@@ -114,14 +114,34 @@ export class Kiwi {
   get position(): THREE.Vector3 {
     return this.object.position;
   }
+  /** The cowboy's dash fires pistols. */
+  get shootout(): boolean {
+    return this.stats.shootout && this.dashing;
+  }
+  /** 0 at the start of a dash, 1 at its end. */
+  get dashProgress(): number {
+    return 1 - clamp(this.dashTimer / this.stats.dashDuration, 0, 1);
+  }
+  /** World positions of the two pistol muzzles (cowboy aiming pose). */
+  get muzzles(): THREE.Vector3[] {
+    const z = this.object.position.z - 0.95;
+    return [-1, 1].map((side) => new THREE.Vector3(this.x + side * 0.62, this.y + 1.85, z));
+  }
   get box(): Box {
     const p = this.object.position;
     const s = this.stats.scale;
+    // a rider on a horse is taller and longer
+    if (this.stats.mounted) {
+      return this.sliding
+        ? { cx: p.x, cy: p.y + 0.4, cz: p.z, hx: 0.5, hy: 0.4, hz: 0.9 }
+        : { cx: p.x, cy: p.y + 1.0, cz: p.z, hx: 0.5, hy: 1.0, hz: 0.9 };
+    }
     // sliding shrinks the box so the kiwi fits under low obstacles
     if (this.sliding) return { cx: p.x, cy: p.y + 0.3 * s, cz: p.z, hx: 0.42 * s, hy: 0.3 * s, hz: 0.55 * s };
     return { cx: p.x, cy: p.y + 0.58 * s, cz: p.z, hx: 0.42 * s, hy: 0.58 * s, hz: 0.5 * s };
   }
   get center(): THREE.Vector3 {
+    if (this.stats.mounted) return new THREE.Vector3(this.x, this.y + (this.sliding ? 0.4 : 1.1), this.object.position.z);
     return new THREE.Vector3(this.x, this.y + (this.sliding ? 0.3 : 0.7) * this.stats.scale, this.object.position.z);
   }
   /** Where the jetpack nozzles are (for flame particles). */
@@ -281,7 +301,7 @@ export class Kiwi {
 
     this.shadow.position.set(0, 0.04 - this.y, 0);
     const s = Math.max(0.4, 1 - this.y * 0.12) * this.stats.scale;
-    this.shadow.scale.set(0.9 * s, 1, 0.9 * s);
+    this.shadow.scale.set(0.9 * s, 1, 0.9 * s * (this.stats.mounted ? 1.7 : 1));
 
     this.model.update({
       dt,
@@ -292,6 +312,7 @@ export class Kiwi {
       sliding: this.sliding,
       flying: this.flying,
       thrusting: this.thrusting,
+      shooting: this.shootout,
       lateral: laneX(this.lane) - this.x,
       squash: this.squash,
       dead: this.dead,

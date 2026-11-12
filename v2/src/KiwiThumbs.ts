@@ -45,7 +45,7 @@ export class KiwiThumbs {
       model.root.scale.setScalar(stats.scale);
       // a standing, mid-stride pose
       model.update({
-        dt: 1, runPhase: 0.9, grounded: true, vy: 0, dashing: false, sliding: false, flying: false, thrusting: false,
+        dt: 1, runPhase: 0.9, grounded: true, vy: 0, dashing: false, sliding: false, flying: false, thrusting: false, shooting: false,
         lateral: 0, squash: 0, dead: false, deadTime: 0, time: 0.4,
       });
       scene.add(model.root);
@@ -55,6 +55,9 @@ export class KiwiThumbs {
         // gear is on the back: look from the side and slightly behind
         camera.position.set(3.1, 1.5, 1.5);
         camera.lookAt(0, 0.85, 0);
+      } else if (stats.skin.accessory === 'cowboy') {
+        camera.position.set(3.4, 2.5, -5.6);
+        camera.lookAt(0, 1.1, -0.2);
       } else {
         camera.position.set(2.1, 1.55, -3.4);
         camera.lookAt(0, 0.85, -0.45);

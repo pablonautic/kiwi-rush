@@ -11,6 +11,8 @@ export interface KiwiPose {
   sliding: boolean;
   flying: boolean;
   thrusting: boolean;
+  /** Cowboy dashing: pistols up, muzzle flashes. */
+  shooting: boolean;
   /** Distance (in x) still to travel to the target lane: leans the bird into the turn. */
   lateral: number;
   squash: number;
@@ -30,6 +32,7 @@ const PALETTES: Record<KiwiSkin['texture'], Palette> = {
   brown: { base: '#80583a', stroke: 'rgba(55,32,14,0.5)', head: '#9a6e45', wing: '#6b4529' },
   gold: { base: '#e2b13c', stroke: 'rgba(130,85,10,0.55)', head: '#f0c553', wing: '#c8962a' },
   slate: { base: '#6c6f7d', stroke: 'rgba(35,38,50,0.5)', head: '#7f8394', wing: '#555968' },
+  ginger: { base: '#e08a3a', stroke: 'rgba(120,55,10,0.5)', head: '#eb9a4c', wing: '#c06f25' },
   void: { base: '#3b2a63', stroke: 'rgba(190,160,255,0.45)', head: '#54408c', wing: '#2c1f4d' },
 };
 
@@ -73,6 +76,13 @@ const glossy = (color: string): THREE.MeshStandardMaterial =>
 export class KiwiModel {
   readonly root = new THREE.Group();
   private rig = new THREE.Group();
+  /** Lifts the rider onto the horse's back. */
+  private lift = new THREE.Group();
+  private mount: THREE.Group | null = null;
+  private horseLegs: THREE.Group[] = [];
+  private tail: THREE.Group | null = null;
+  private pistols: THREE.Group[] = [];
+  private flashes: THREE.Mesh[] = [];
   private head = new THREE.Group();
   private flower = new THREE.Group();
   private legs: THREE.Group[] = [];
@@ -87,7 +97,7 @@ export class KiwiModel {
   private headAcc = new THREE.Group();
   private bodyAcc = new THREE.Group();
   private legAcc: THREE.Object3D[] = [];
-  private bandTails: THREE.Mesh[] = [];
+  private bandTails: THREE.Object3D[] = [];
   private cape: THREE.Mesh | null = null;
   private halo: THREE.Mesh | null = null;
   private flames: THREE.Mesh[] = [];
@@ -157,7 +167,8 @@ export class KiwiModel {
     }
 
     this.rig.add(body, this.head, this.bodyAcc);
-    this.root.add(this.rig);
+    this.lift.add(this.rig);
+    this.root.add(this.lift);
     this.setSkin({ texture: 'brown', accessory: 'none' });
   }
 
@@ -179,6 +190,14 @@ export class KiwiModel {
     this.halo = null;
     this.flower.visible = true;
     this.feet.forEach((f) => (f.material = this.legMat));
+    this.mount?.removeFromParent();
+    this.mount = null;
+    this.horseLegs = [];
+    this.tail = null;
+    this.pistols = [];
+    this.flashes = [];
+    this.lift.position.y = 0;
+    this.legs.forEach((l) => (l.visible = true));
 
     switch (skin.accessory) {
       case 'headband':
@@ -198,6 +217,15 @@ export class KiwiModel {
         break;
       case 'racer':
         this.buildRacer();
+        break;
+      case 'cowboy':
+        this.buildCowboy();
+        break;
+      case 'cat':
+        this.buildCat();
+        break;
+      case 'spidey':
+        this.buildSpidey();
         break;
     }
   }
@@ -361,6 +389,232 @@ export class KiwiModel {
     });
   }
 
+  /** Spider-suit: red/blue suit with web lines, full mask with big white eyes. */
+  private buildSpidey(): void {
+    const red = std('#d62828', 0.5);
+    const blue = std('#1d3fa8', 0.5);
+    const black = std('#111118', 0.6);
+    this.flower.visible = false;
+    const suit = new THREE.Mesh(new THREE.SphereGeometry(0.575, 28, 20), red);
+    suit.scale.set(1, 0.92, 1.2);
+    suit.position.y = 0.74;
+    this.bodyAcc.add(suit);
+    // blue underside band and web rings
+    const belly = new THREE.Mesh(new THREE.SphereGeometry(0.58, 28, 10, 0, Math.PI * 2, Math.PI * 0.62, Math.PI * 0.3), blue);
+    belly.scale.set(1, 0.92, 1.2);
+    belly.position.y = 0.74;
+    this.bodyAcc.add(belly);
+    for (const y of [0.55, 0.78, 1.0]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.56, 0.012, 4, 32), black);
+      ring.rotation.x = Math.PI / 2;
+      ring.scale.set(1, 1.2, 1);
+      ring.position.y = y;
+      this.bodyAcc.add(ring);
+    }
+    for (let i = 0; i < 6; i++) {
+      const line = new THREE.Mesh(new THREE.TorusGeometry(0.575, 0.01, 4, 24, Math.PI), black);
+      line.scale.set(1, 0.92, 1.2);
+      line.position.y = 0.74;
+      line.rotation.y = (i / 6) * Math.PI;
+      this.bodyAcc.add(line);
+    }
+    // spider mark on the back
+    const mark = new THREE.Mesh(new THREE.SphereGeometry(0.1, 10, 8), black);
+    mark.position.set(0, 1.05, 0.62);
+    this.bodyAcc.add(mark);
+
+    // mask
+    const mask = new THREE.Mesh(new THREE.SphereGeometry(0.34, 24, 16), red);
+    mask.scale.set(1, 1, 1.06);
+    this.headAcc.add(mask);
+    for (const side of [-1, 1]) {
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.11, 14, 10), std('#ffffff', 0.2));
+      eye.scale.set(1.25, 0.8, 0.4);
+      eye.position.set(side * 0.19, 0.1, -0.25);
+      eye.rotation.set(0, side * 0.55, side * -0.3);
+      const rim = new THREE.Mesh(new THREE.TorusGeometry(0.12, 0.012, 4, 16), black);
+      rim.scale.set(1.25, 0.8, 1);
+      rim.position.copy(eye.position);
+      rim.rotation.copy(eye.rotation);
+      this.headAcc.add(eye, rim);
+    }
+    for (const y of [0, 0.15, 0.28]) {
+      const ring = new THREE.Mesh(new THREE.TorusGeometry(0.34 * Math.sqrt(1 - (y / 0.36) ** 2), 0.008, 4, 28), black);
+      ring.rotation.x = Math.PI / 2;
+      ring.position.y = y - 0.04;
+      this.headAcc.add(ring);
+    }
+    // blue boots
+    this.feet.forEach((foot) => {
+      foot.material = blue;
+    });
+  }
+
+  /** Cat costume: pointy ears, whiskers, pink nose and a swishing tail. */
+  private buildCat(): void {
+    const fur = std('#e08a3a', 0.8);
+    const pink = std('#ff9db5', 0.6);
+    this.flower.visible = false;
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.13, 0.28, 4), fur);
+      ear.position.set(side * 0.17, 0.36, 0.02);
+      ear.rotation.z = -side * 0.25;
+      const inner = new THREE.Mesh(new THREE.ConeGeometry(0.07, 0.17, 4), pink);
+      inner.position.set(side * 0.17, 0.34, -0.03);
+      inner.rotation.z = -side * 0.25;
+      this.headAcc.add(ear, inner);
+    }
+    const nose = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), pink);
+    nose.position.set(0, -0.02, -0.34);
+    this.headAcc.add(nose);
+    const dark = std('#3a2a1e', 0.6);
+    for (const side of [-1, 1]) {
+      for (const dy of [-0.04, 0.03]) {
+        const w = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.01, 0.01), dark);
+        w.position.set(side * 0.28, dy - 0.02, -0.28);
+        w.rotation.z = side * dy * 2.5;
+        this.headAcc.add(w);
+      }
+    }
+    // striped tail, pivoting at its base on the rump
+    const tail = new THREE.Group();
+    tail.position.set(0, 0.5, 0.62);
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.09, 0.8, 8), fur);
+    seg.position.set(0, 0.4, 0.1);
+    seg.rotation.x = 0.35;
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 8), std('#fff1e0', 0.7));
+    tip.position.set(0, 0.8, 0.24);
+    tail.add(seg, tip);
+    this.bandTails.push(tail);
+    this.bodyAcc.add(tail);
+  }
+
+  /** A chestnut horse built from primitives; its legs are animated in update(). */
+  private buildHorse(): THREE.Group {
+    const horse = new THREE.Group();
+    const coat = std('#a0522d', 0.75);
+    const dark = std('#3a2412', 0.8);
+
+    const body = new THREE.Mesh(new THREE.SphereGeometry(1, 20, 14), coat);
+    body.scale.set(0.5, 0.45, 1.0);
+    body.position.set(0, 0.88, 0.1);
+    const chest = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 12), coat);
+    chest.scale.set(0.46, 0.5, 0.5);
+    chest.position.set(0, 0.95, -0.6);
+
+    const neck = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.24, 0.8, 10), coat);
+    neck.position.set(0, 1.35, -0.95);
+    neck.rotation.x = -0.75;
+    const head = new THREE.Group();
+    head.position.set(0, 1.62, -1.27);
+    head.rotation.x = 0.55;
+    const skull = new THREE.Mesh(new THREE.SphereGeometry(1, 14, 10), coat);
+    skull.scale.set(0.17, 0.2, 0.4);
+    const muzzle = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 8), dark);
+    muzzle.scale.set(0.13, 0.13, 0.17);
+    muzzle.position.set(0, -0.05, -0.36);
+    head.add(skull, muzzle);
+    for (const side of [-1, 1]) {
+      const ear = new THREE.Mesh(new THREE.ConeGeometry(0.05, 0.16, 6), coat);
+      ear.position.set(side * 0.1, 0.2, 0.12);
+      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.03, 8, 6), std('#111', 0.3));
+      eye.position.set(side * 0.15, 0.06, -0.12);
+      head.add(ear, eye);
+    }
+    const mane = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.8, 0.14), dark);
+    mane.position.set(0, 1.4, -0.82);
+    mane.rotation.x = -0.75;
+
+    this.tail = new THREE.Group();
+    this.tail.position.set(0, 1.0, 1.05);
+    const tailMesh = new THREE.Mesh(new THREE.ConeGeometry(0.11, 0.8, 8), dark);
+    tailMesh.geometry.translate(0, -0.4, 0);
+    tailMesh.rotation.x = Math.PI;
+    tailMesh.scale.y = -1;
+    this.tail.add(tailMesh);
+    this.tail.rotation.x = 0.5;
+
+    // saddle + blanket
+    const blanket = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.6), std('#c1121f', 0.7));
+    blanket.position.set(0, 1.27, 0.05);
+    const saddle = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.1, 0.46), std('#5a3a1e', 0.6));
+    saddle.position.set(0, 1.32, 0.05);
+
+    // four legs, pivoting at the hips
+    const legGeo = new THREE.CylinderGeometry(0.085, 0.055, 0.62, 8);
+    const hoofGeo = new THREE.CylinderGeometry(0.075, 0.08, 0.09, 8);
+    const hips: Array<[number, number]> = [[-0.2, -0.55], [0.2, -0.55], [-0.2, 0.75], [0.2, 0.75]];
+    for (const [x, z] of hips) {
+      const leg = new THREE.Group();
+      leg.position.set(x, 0.72, z);
+      const upper = new THREE.Mesh(legGeo, coat);
+      upper.position.y = -0.31;
+      const hoof = new THREE.Mesh(hoofGeo, dark);
+      hoof.position.y = -0.66;
+      leg.add(upper, hoof);
+      this.horseLegs.push(leg);
+      horse.add(leg);
+    }
+    horse.add(body, chest, neck, head, mane, this.tail, blanket, saddle);
+    return horse;
+  }
+
+  /** A single-action revolver pointing along -z, with a muzzle flash (hidden until firing). */
+  private makeRevolver(): THREE.Group {
+    const g = new THREE.Group();
+    const metal = glossy('#2b2b33');
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 0.42, 8).rotateX(Math.PI / 2), metal);
+    barrel.position.z = -0.24;
+    const chamber = new THREE.Mesh(new THREE.CylinderGeometry(0.065, 0.065, 0.13, 10).rotateX(Math.PI / 2), metal);
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.2, 0.08), std('#6b3f1c', 0.6));
+    grip.position.set(0, -0.1, 0.07);
+    grip.rotation.x = 0.35;
+    const flash = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6), new THREE.MeshBasicMaterial({ color: '#ffe066' }));
+    flash.position.z = -0.52;
+    flash.visible = false;
+    this.flashes.push(flash);
+    g.add(barrel, chamber, grip, flash);
+    return g;
+  }
+
+  /** Cowboy: rides a horse, hat, bandana and two six-shooters. */
+  private buildCowboy(): void {
+    this.mount = this.buildHorse();
+    this.root.add(this.mount);
+    this.legs.forEach((l) => (l.visible = false)); // the kiwi's own legs are tucked behind the saddle
+    this.lift.position.y = 1.02;
+    this.flower.visible = false;
+
+    // hat, bandana
+    const felt = std('#8a5a2b', 0.8);
+    const hat = new THREE.Group();
+    hat.position.set(0, 0.3, 0.03);
+    hat.rotation.x = 0.12;
+    const brim = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.52, 0.04, 24), felt);
+    const crown = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.3, 16), felt);
+    crown.position.y = 0.17;
+    const band = new THREE.Mesh(new THREE.CylinderGeometry(0.265, 0.265, 0.07, 16), std('#3a2412', 0.7));
+    band.position.y = 0.07;
+    hat.add(brim, crown, band);
+    const bandana = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.07, 8, 20), std('#d62828', 0.6));
+    bandana.rotation.x = Math.PI / 2;
+    bandana.position.set(0, -0.2, 0.06);
+    this.headAcc.add(hat, bandana);
+
+    // holsters + pistols (hang at the hips, swing up when shooting)
+    const leather = std('#5a3a1e', 0.7);
+    for (const side of [-1, 1]) {
+      const holster = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.34, 0.16), leather);
+      holster.position.set(side * 0.58, 0.45, 0.12);
+      this.bodyAcc.add(holster);
+      const gun = this.makeRevolver();
+      gun.position.set(side * 0.58, 0.62, 0.12);
+      gun.rotation.x = -1.35;
+      this.pistols.push(gun);
+      this.bodyAcc.add(gun);
+    }
+  }
+
   update(p: KiwiPose): void {
     const airborne = !p.grounded;
     const k = 1 - Math.exp(-14 * p.dt);
@@ -417,6 +671,23 @@ export class KiwiModel {
       f.scale.set(1, 0.75 + 0.5 * Math.abs(Math.sin(p.time * 45)), 1);
     }
 
+    if (this.mount) this.animateHorse(p, k);
+    this.pistols.forEach((gun, i) => {
+      const side = i === 0 ? -1 : 1;
+      const aim = p.shooting;
+      const tx = side * (aim ? 0.62 : 0.58);
+      const ty = aim ? 0.85 : 0.62;
+      const tz = aim ? -0.4 : 0.12;
+      const kk = Math.min(1, k * 1.6);
+      gun.position.x += (tx - gun.position.x) * kk;
+      gun.position.y += (ty - gun.position.y) * kk;
+      gun.position.z += (tz - gun.position.z) * kk;
+      gun.rotation.x += ((aim ? 0.04 : -1.35) - gun.rotation.x) * kk;
+    });
+    this.flashes.forEach((f, i) => {
+      f.visible = p.shooting && Math.sin(p.time * 50 + i * Math.PI) > 0;
+    });
+
     if (p.dead) {
       const d = Math.min(1, p.deadTime * 3);
       this.rig.rotation.z = (Math.PI / 2) * d;
@@ -426,5 +697,26 @@ export class KiwiModel {
       this.rig.rotation.z = 0;
       this.rig.position.x = 0;
     }
+  }
+
+  /** Gallop cycle, tail swish and crouching while sliding. */
+  private animateHorse(p: KiwiPose, k: number): void {
+    const mount = this.mount!;
+    const stride = p.runPhase;
+    const air = !p.grounded;
+    // front legs fold/reach, rear legs push; in the air they stretch out in a flying gallop
+    const targets = air
+      ? [0.8, 0.7, -0.8, -0.7]
+      : [Math.sin(stride), Math.sin(stride + 0.6), Math.sin(stride + Math.PI), Math.sin(stride + Math.PI + 0.6)];
+    this.horseLegs.forEach((leg, i) => {
+      const t = p.sliding ? (i < 2 ? 1.0 : -1.0) : targets[i] * (p.dashing ? 1.15 : 1);
+      leg.rotation.x += (t - leg.rotation.x) * Math.max(k, 0.3);
+    });
+    if (this.tail) this.tail.rotation.x = 0.5 + Math.sin(p.time * 8) * 0.18 + (p.dashing ? 0.5 : 0);
+    const bob = p.grounded && !p.sliding && !p.dead ? Math.abs(Math.sin(stride)) * 0.06 : 0;
+    mount.position.y += (bob - mount.position.y) * Math.max(k, 0.3);
+    const crouch = p.sliding ? 0.6 : 1;
+    mount.scale.y += (crouch - mount.scale.y) * k;
+    this.lift.position.y = 1.02 * mount.scale.y + mount.position.y;
   }
 }
